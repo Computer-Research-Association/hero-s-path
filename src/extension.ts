@@ -4,6 +4,7 @@ import * as path from "path";
 import { getSnapshotWebviewContent } from "./snapshotWebview";
 
 let snapshots: any[] = [];
+const MAX_SNAPSHOTS = 1000;
 
 function activate(context: vscode.ExtensionContext) {
   // Command to start tracking changes
@@ -48,13 +49,19 @@ function startTracking() {
   });
 }
 
-function takeSnapshot(editor: vscode.TextEditor) {
+async function takeSnapshot(editor: vscode.TextEditor) {
+  if (snapshots.length >= MAX_SNAPSHOTS) {
+    snapshots.shift();
+  }
+
   const document = editor.document;
+  const snapshotText = document.getText();
+  const timestamp = new Date();
 
   // Capture a snapshot of the document
   const snapshot = {
-    timestamp: new Date(),
-    text: document.getText(),
+    timestamp: timestamp,
+    text: snapshotText,
     language: document.languageId,
   };
 
