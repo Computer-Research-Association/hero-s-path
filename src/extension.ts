@@ -2,9 +2,12 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import { getSnapshotWebviewContent } from "./snapshotWebview";
+import { subscribe } from "diagnostics_channel";
 
 let snapshots: any[] = [];
 const MAX_SNAPSHOTS = 1000;
+
+let snapshotIndicatorStatusBar: vscode.StatusBarItem;
 
 function activate(context: vscode.ExtensionContext) {
   // Command to start tracking changes
@@ -23,7 +26,27 @@ function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  snapshotIndicatorStatusBar = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Right,
+    100
+  );
+
   context.subscriptions.push(startCommand, viewCommand);
+  context.subscriptions.push(snapshotIndicatorStatusBar);
+  context.subscriptions.push(
+    vscode.workspace.onDidSaveTextDocument(updateStatusBar)
+  );
+}
+
+function updateStatusBar(): void {
+  const n = snapshots.length;
+
+  if (n > 0) {
+    snapshotIndicatorStatusBar.text = `$(map-filled) ${n} snapshots`;
+    snapshotIndicatorStatusBar.show();
+  } else {
+    snapshotIndicatorStatusBar.hide();
+  }
 }
 
 function startTracking() {
@@ -107,8 +130,6 @@ function saveSnapshotsToFile(snapshots: any[]) {
       vscode.window.showErrorMessage(
         `Failed to save snapshots: ${err.message}`
       );
-    } else {
-      vscode.window.showInformationMessage(`Snapshots saved to ${filePath}`);
     }
   });
 }
