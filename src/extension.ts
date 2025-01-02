@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import { getSnapshotWebviewContent } from "./snapshotWebview";
-import { subscribe } from "diagnostics_channel";
 
 let snapshots: any[] = [];
 const MAX_SNAPSHOTS = 1000;
