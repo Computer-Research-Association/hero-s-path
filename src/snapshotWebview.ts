@@ -1,42 +1,84 @@
 import * as vscode from "vscode";
-import DiffMatchPatch from "diff-match-patch";
 
 export function getSnapshotWebviewContent(
   snapshots: { text: string }[],
-  activeColorTheme: vscode.ColorTheme
+  activeTheme: vscode.ColorTheme
 ): string {
-  const darkMode = activeColorTheme.kind === vscode.ColorThemeKind.Dark;
-
-  const diffs: string[] = computeDiffs(snapshots);
+  const darkMode = activeTheme.kind === vscode.ColorThemeKind.Dark;
 
   return `
     <!DOCTYPE html>
     <html lang="en">
     <head>
-      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css">
+      <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/${
+          darkMode ? "github-dark" : "github"
+        }.min.css"
+      >
       <style>
         body {
+          font-family: var(--vscode-editor-font-family, "Courier New", monospace);
+          font-size: var(--vscode-editor-font-size, 14px);
+          line-height: var(--vscode-editor-line-height, 1.5);
+          color: var(--vscode-editor-foreground, #000);
+          background-color: var(--vscode-editor-background, #fff);
           margin: 0;
-          font-family: sans-serif;
-          background-color: var(--vscode-editor-background);
-          color: var(--vscode-editor-foreground);
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          height: 100vh;
         }
-        pre, code {
+        .header {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          padding: 10px 20px;
+          background-color: var(--vscode-editorWidget-background, #f3f3f3);
+          border-bottom: 1px solid var(--vscode-editorWidget-border, #ccc);
+          z-index: 1000;
+          box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .header h1 {
           margin: 0;
-          font-family: Consolas, "Courier New", monospace;
-          background-color: var(--vscode-editor-background);
-          color: var(--vscode-editor-foreground);
+          font-size: 16px;
         }
-        .diff del {
-          font-family: inherit;
-          background-color: #ffc6c6 !important;
-          text-decoration: none;
-          color: inherit;
+        .snapshot-container {
+          flex: 1;
+          margin-top: 50px; /* Adjust for the fixed header height */
+          overflow-y: auto;
+          padding: 20px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          color: var(--vscode-editor-foreground, #000);
+          background-color: var(--vscode-editor-background, #fff);
         }
-        .diff ins {
-          font-family: inherit;
-          background-color: #c6ffc6 !important;
-          text-decoration: none;
+        .snapshot {
+          margin: 20px;
+          border: 1px solid var(--vscode-editorWidget-border, #ccc);
+          padding: 20px;
+          border-radius: 5px;
+          background-color: var(--vscode-editorWidget-background, #f3f3f3);
+          max-width: 80%;
+          white-space: pre-wrap;
+          word-wrap: break-word;
+          text-align: left;
+        }
+        pre {
+          margin: 0;
+          padding: 10px;
+          font-family: var(--vscode-editor-font-family, "Courier New", monospace);
+          font-size: var(--vscode-editor-font-size, 14px);
+          line-height: var(--vscode-editor-line-height, 1.5);
+          color: var(--vscode-editor-foreground, #000);
+          background-color: var(--vscode-editor-background, #fff);
+          white-space: pre-wrap;
+          word-wrap: break-word;
+        }
+        code {
+          display: block;
           color: inherit;
         }
       </style>
@@ -50,7 +92,6 @@ export function getSnapshotWebviewContent(
       <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
       <script>
       const snapshots = ${JSON.stringify(snapshots)};
-      const diffs = ${JSON.stringify(diffs)};
       let currentIndex = 0;
 
       const snapshotContainer = document.getElementById("snapshotContainer");
@@ -63,91 +104,27 @@ export function getSnapshotWebviewContent(
 
         let htmlContent = "";
 
-        if (currentIndex % 2 === 0) {
-          const snapshotIndex = currentIndex / 2;
-          htmlContent = \`
-            <div class="snapshot">
-              <h3>Snapshot \${snapshotIndex + 1}</h3>
-              <pre><code class="hljs">\${snapshots[snapshotIndex].text}</code></pre>
-            </div>
-          \`;
-        } else {
-          const diffIndex = Math.floor(currentIndex / 2);
-          if (diffIndex < diffs.length) {
-            htmlContent = \`
-              <div class="snapshot">
-                <h3>Diff: Snapshot \${diffIndex + 1} → Snapshot \${diffIndex + 2}</h3>
-                <pre class="diff"><code class="hljs">\${diffs[diffIndex]}</code></pre>
-              </div>
-            \`;
-          }
-        }
+        htmlContent = \`
+          <div class="snapshot">
+            <h3>Snapshot \${currentIndex + 1}</h3>
+            <pre><code class="hljs">\${snapshots[currentIndex].text}</code></pre>
+          </div>
+        \`;
 
         snapshotContainer.innerHTML = htmlContent;
 
-        snapshotContainer.querySelectorAll("pre code.hljs").forEach((block) => {
-          hljs.highlightElement(block);
-        })
+        document.querySelectorAll("code").forEach((block) => {
+          hljs.highlightBlock(block);
+        });
 
-        currentIndex = (currentIndex + 1) % (snapshots.length * 2 - 1);
+        currentIndex = (currentIndex + 1) % snapshots.length;
       }
 
-      setInterval(updateSnapshot, 1000);
+      setInterval(updateSnapshot, 500);
       updateSnapshot();
     </script>
+
     </body>
     </html>
   `;
-}
-
-function computeDiffs(snapshots: any[]): string[] {
-  const dmp = new DiffMatchPatch();
-  const diffs: string[] = [];
-
-  for (let i = 1; i < snapshots.length; i++) {
-    const prevText = snapshots[i - 1].text;
-    const currText = snapshots[i].text;
-    const diff = dmp.diff_main(prevText, currText);
-    dmp.diff_cleanupSemantic(diff);
-
-    const diffHtml = diff
-      .map(([op, text]) => {
-        const highlihgtedText = applyCustomSyntaxHighlighting(escapeHtml(text));
-
-        if (op === -1) {
-          return `<span style="background-color: #ffc6c6 !important; text-decoration: none; color: inherit;">${highlihgtedText}</span>`;
-        }
-        if (op === 1) {
-          return `<span style="background-color: #c6ffc6 !important; text-decoration: none; color: inherit;">${highlihgtedText}</span>`;
-        }
-        return highlihgtedText;
-      })
-      .join("");
-
-    diffs.push(diffHtml);
-  }
-
-  return diffs;
-}
-
-function applyCustomSyntaxHighlighting(code: string): string {
-  const keywordRegex =
-    /\b(function|let|const|if|else|for|while|return|class|import|export|new|true|false|null|undefined|try|catch|finally)\b/g;
-  const stringRegex = /(["'`])(?:\\\1|.)*?\1/g;
-  const numberRegex = /\b\d+\b/g;
-
-  code = code.replace(keywordRegex, `<span class="hljs-keyword">$&</span>`);
-  code = code.replace(stringRegex, `<span class="hljs-string">$&</span>`);
-  code = code.replace(numberRegex, `<span class="hljs-number">$&</span>`);
-
-  return code;
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
