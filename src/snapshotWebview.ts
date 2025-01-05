@@ -28,6 +28,8 @@ export function getSnapshotWebviewContent(
           display: flex;
           flex-direction: column;
           height: 100vh;
+          justify-content: center;
+          align-items: center;
         }
         .header {
           position: fixed;
@@ -46,19 +48,18 @@ export function getSnapshotWebviewContent(
         }
         .snapshot-container {
           flex: 1;
-          margin-top: 50px; /* Adjust for the fixed header height */
+          margin-top: 40px;
           overflow-y: auto;
-          padding: 20px;
-          display: flex;
+          padding: 10px;
           justify-content: center;
           align-items: center;
           color: var(--vscode-editor-foreground, #000);
           background-color: var(--vscode-editor-background, #fff);
         }
         .snapshot {
-          margin: 20px;
+          margin: 10px;
           border: 1px solid var(--vscode-editorWidget-border, #ccc);
-          padding: 20px;
+          padding: 10px;
           border-radius: 5px;
           background-color: var(--vscode-editorWidget-background, #f3f3f3);
           max-width: 80%;
@@ -85,7 +86,7 @@ export function getSnapshotWebviewContent(
     </head>
     <body>
       <div class="header">
-        <h1>Snapshot Viewer</h1>
+        <h1>Hero's Path</h1>
       </div>
       <div class="snapshot-container" id="snapshotContainer">No snapshots available.</div>
 
@@ -106,7 +107,6 @@ export function getSnapshotWebviewContent(
 
         htmlContent = \`
           <div class="snapshot">
-            <h3>Snapshot \${currentIndex + 1}</h3>
             <pre><code class="hljs">\${snapshots[currentIndex].text}</code></pre>
           </div>
         \`;

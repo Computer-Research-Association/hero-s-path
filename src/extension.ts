@@ -106,7 +106,11 @@ function openSnapshotVisualizer(context: vscode.ExtensionContext) {
   );
 
   const activeTheme = vscode.window.activeColorTheme;
-  panel.webview.html = getSnapshotWebviewContent(snapshots, activeTheme);
+  panel.webview.html = getSnapshotWebviewContent(
+    snapshots,
+    activeTheme,
+    context.extensionUri
+  );
 }
 
 function saveSnapshotsToFile(snapshots: any[]) {
