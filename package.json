@@ -2,6 +2,20 @@
   "name": "hero-s-path",
   "displayName": "Hero's Path",
   "description": "",
+  "publisher": "Seongbin Kim",
+  "contributors": [
+    {
+      "name": "young170",
+      "url": "https://github.com/young170"
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/Computer-Research-Association/hero-s-path"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Computer-Research-Association/hero-s-path/issues"
+  },
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.96.0"
