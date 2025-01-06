@@ -1,15 +1,24 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
-import { getSnapshotWebviewContent } from "./snapshotWebview";
+import { SnapshotViewProvider } from "./snapshotWebview";
 
 let snapshots: any[] = [];
 const MAX_SNAPSHOTS = 1000;
+let provider: SnapshotViewProvider;
 
 let snapshotIndicatorStatusBar: vscode.StatusBarItem;
 
 function activate(context: vscode.ExtensionContext) {
-  // Command to start tracking changes
+  loadSnapshotsFromFile();
+
+  const activeTheme = vscode.window.activeColorTheme;
+  provider = new SnapshotViewProvider(
+    context.extensionUri,
+    snapshots,
+    activeTheme
+  );
+
   let startCommand = vscode.commands.registerCommand(
     "hero-s-path.startHerosPath",
     () => {
@@ -30,6 +39,12 @@ function activate(context: vscode.ExtensionContext) {
     100
   );
 
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      SnapshotViewProvider.viewType,
+      provider
+    )
+  );
   context.subscriptions.push(startCommand, viewCommand);
   context.subscriptions.push(snapshotIndicatorStatusBar);
   context.subscriptions.push(
@@ -49,7 +64,6 @@ function updateStatusBar(): void {
 }
 
 function startTracking() {
-  // Event listener for active editor changes
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showErrorMessage("No active editor found!");
@@ -58,14 +72,12 @@ function startTracking() {
 
   const document = editor.document;
 
-  // Track changes on save or document edits
   const saveListener = vscode.workspace.onDidSaveTextDocument((doc) => {
     if (doc === document) {
       takeSnapshot(editor);
     }
   });
 
-  // Clean up listeners when done
   vscode.window.onDidChangeActiveTextEditor(() => {
     saveListener.dispose();
   });
@@ -80,7 +92,6 @@ async function takeSnapshot(editor: vscode.TextEditor) {
   const snapshotText = document.getText();
   const timestamp = new Date();
 
-  // Capture a snapshot of the document
   const snapshot = {
     timestamp: timestamp,
     text: snapshotText,
@@ -89,28 +100,13 @@ async function takeSnapshot(editor: vscode.TextEditor) {
 
   snapshots.push(snapshot);
 
-  // Optionally log or save snapshots
-  console.log("Snapshot taken:", snapshot);
-
   saveSnapshotsToFile(snapshots);
 }
 
 function openSnapshotVisualizer(context: vscode.ExtensionContext) {
-  const panel = vscode.window.createWebviewPanel(
-    "snapshotVisualizer",
-    "Snapshots Visualizer",
-    vscode.ViewColumn.One,
-    {
-      enableScripts: true,
-    }
-  );
+  loadSnapshotsFromFile();
 
-  const activeTheme = vscode.window.activeColorTheme;
-  panel.webview.html = getSnapshotWebviewContent(
-    snapshots,
-    activeTheme,
-    context.extensionUri
-  );
+  provider.setSnapshots(snapshots);
 }
 
 function saveSnapshotsToFile(snapshots: any[]) {
@@ -121,13 +117,11 @@ function saveSnapshotsToFile(snapshots: any[]) {
     return;
   }
 
-  // Get the first workspace folder
   const workspaceFolder = vscode.workspace.workspaceFolders[0];
   const filePath = path.join(workspaceFolder.uri.fsPath, "snapshots.json");
 
   console.log("Snapshot saved: ", filePath);
 
-  // Write to the file
   fs.writeFile(filePath, JSON.stringify(snapshots, null, 2), (err) => {
     if (err) {
       vscode.window.showErrorMessage(
@@ -137,7 +131,33 @@ function saveSnapshotsToFile(snapshots: any[]) {
   });
 }
 
-// Deactivate extension
+function loadSnapshotsFromFile() {
+  if (!vscode.workspace.workspaceFolders) {
+    vscode.window.showErrorMessage(
+      "No workspace folder is open. Snapshots cannot be loaded."
+    );
+    return;
+  }
+
+  const workspaceFolder = vscode.workspace.workspaceFolders[0];
+  const filePath = path.join(workspaceFolder.uri.fsPath, "snapshots.json");
+
+  if (fs.existsSync(filePath)) {
+    try {
+      const fileContent = fs.readFileSync(filePath, "utf-8");
+      snapshots = JSON.parse(fileContent);
+      console.log("Snapshots loaded from file:", snapshots);
+    } catch (err) {
+      vscode.window.showErrorMessage(`Failed to load snapshots`);
+    }
+  } else {
+    console.log(
+      "Snapshots file not found. Starting with an empty snapshot list."
+    );
+    snapshots = [];
+  }
+}
+
 function deactivate() {}
 
 module.exports = {
